@@ -15,7 +15,7 @@ namespace SpriteRotate
             Color.Black,
             Color.FromArgb(255, 255, 0, 0),
             Color.FromArgb(255, 0, 0, 255),
-            Color.FromArgb(255, 0, 255, 0),
+            Color.FromArgb(255, 0, 255, 255),
         };
 
         static void Main(string[] args)
