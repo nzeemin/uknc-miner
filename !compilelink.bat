@@ -17,7 +17,7 @@ echo VERSTR:	.ASCII /REV.%REVISION% %DATESTAMP%/ > VERSIO.MAC
 @if exist MINER.LST del MINER.LST
 @if exist MINER.OBJ del MINER.OBJ
 
-%rt11exe% MACRO/LIST:DK: MINER.MAC+SYSMAC.SML/LIBRARY
+%rt11exe% MACRO/LIST:DK: MINER.MAC
 
 for /f "delims=" %%a in ('findstr /B "Errors detected" MINER.LST') do set "errdet=%%a"
 if "%errdet%"=="Errors detected:  0" (

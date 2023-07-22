@@ -40,7 +40,7 @@ namespace SpriteRotate
                 ProcessSprite(writer, $"SP{i}", 2 + i * 18, 40, 16 / 8, 16);
 
             for (int i = 0; i < 10; i++)
-                ProcessSprite(writer, $"SPN{i}", 2 + i * 14, 102, 16 / 8, 21);
+                ProcessSprite(writer, $"SPN{i}", 2 + i * 16, 102, 16 / 8, 21);
 
             ProcessSprite(writer, "SPBLOCK", 20, 58, 16 / 8, 16);
             ProcessSprite(writer, "SPCURS", 38, 58, 16 / 8, 16);

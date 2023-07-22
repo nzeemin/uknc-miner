@@ -1,9 +1,5 @@
 @echo off
 
-if exist x-ukncbtl\MINER.BIN del x-ukncbtl\MINER.BIN
-C:\bin\Sav2Cart.exe MINER.SAV MINER.BIN
-move MINER.BIN x-ukncbtl\MINER.BIN
-
 del x-ukncbtl\sys1002.dsk
 @if exist "x-ukncbtl\sys1002.dsk" (
   echo.
