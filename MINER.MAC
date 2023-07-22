@@ -1,7 +1,7 @@
 	.TITLE	MINER
 	.ASECT
 
-MAXFLD = <18.*14.>	; Максимальный размер поля, с учётом двух пустых колонок слева/справа
+MAXFLD = 18.*14.	; Максимальный размер поля, с учётом двух пустых колонок слева/справа
 SCICON = 100023		; Адрес на экране для смайлика
 SCINDL = 100125		; Адрес на экране для левого индикатора
 SCBACK = 103604		; Адрес на экране с которого начинается фон
@@ -156,12 +156,17 @@ GMLOOP:
 	MTPS	R0
 	BNE	5$		; Игра окончена?
 	JMP	GMEWIN
-; Нажата ли клавиша
+; Ожидание нажатия клавиши
 5$:	CALL	WTKEY
 	CMP	#130, R0	; 'X'
 	BNE	10$
 	JMP	MENU		; Возврат в меню
-10$:	CMP	#15504, R0	; Клавиша влево?
+; Нарисовать ячейку под курсором - без курсора
+10$:	PUSH	R0
+	CALL	DRCURC		; Рисуем ячейку под курсором
+	POP	R0
+; Анализ нажатой клавиши
+	CMP	#15504, R0	; Клавиша влево?
 	BEQ	GOLEFT
 	CMP	#15503, R0	; Клавиша вправо?
 	BEQ	GORIGHT
@@ -190,41 +195,35 @@ GMLOOP:
 ; знак вопроса - меняем на пусто
 22$:	BIC	#140, R0
 25$:	MOVB	R0, (R1)	; записываем изменение флагов
-	CALL	DRCURC		; Рисуем ячейку под курсором и курсор
+	CALL	DRCURC		; Рисуем ячейку под курсором
+; Нарисовать курсор и вернуться в меню
+GMCUR:	CALL	DRCURS		; Нарисовать курсор
 	BR	GMLOOP
 ; Обработка клавиш-стрелок
 GOLEFT:
 	MOV	CURSRX, R0
 	BEQ	GMLOOP
-	CALL	DRCURS
 	DEC	CURSRX
-	CALL	DRCURS
-	BR	GMLOOP
+	BR	GMCUR		; Нарисовать курсор и вернуться в меню
 GORIGHT:
 	MOV	CURSRX, R0
 	INC	R0
 	CMP	GMEWID, R0
 	BLOS	GMLOOP
-	CALL	DRCURS
 	INC	CURSRX
-	CALL	DRCURS
-	BR	GMLOOP
+	BR	GMCUR		; Нарисовать курсор и вернуться в меню
 GOUP:
 	MOV	CURSRY, R0
 	BEQ	GMLOOP
-	CALL	DRCURS
 	DEC	CURSRY
-	CALL	DRCURS
-	BR	GMLOOP
+	BR	GMCUR		; Нарисовать курсор и вернуться в меню
 GODOWN:
 	MOV	CURSRY, R0
 	INC	R0
 	CMP	GMEHEI, R0
 	BLOS	GMLOOP
-	CALL	DRCURS
 	INC	CURSRY
-	CALL	DRCURS
-GMLOON:	BR	GMLOOP
+	BR	GMCUR		; Нарисовать курсор и вернуться в меню
 ; Клавиша пробел - открыть ячейку
 GOSPC:
 	CALL	CUR2FLD		; R1 = адрес в FIELD
@@ -233,16 +232,17 @@ GOSPC:
 	BIC	#177740, R0	; Стираем признак закрытости и флаги
 	MOVB	R0, (R1)
 	PUSH	R0
-	CALL	DRCURC		; Рисуем ячейку под курсором и курсор
+	CALL	DRCURC		; Рисуем ячейку под курсором
+	CALL	DRCURS		; Нарисовать курсор
 	POP	R0
 	BNE	10$		; ячейка пуста?
 ; Ячейка пуста - раскрываем область вокруг неё
 	MOV	CURSRX, R0
 	MOV	CURSRY, R1
 	CALL	OPENAREA
-	BR	GMLOON
+	BR	GMCUR		; Нарисовать курсор и вернуться в меню
 10$:	BIT	#20, R0		; Это мина?
-	BEQ	GMLOON		; нет
+	BEQ	GMCUR		; нет => Нарисовать курсор и вернуться в меню
 	JMP	GMEOVR		; Это мина, игра окончена
 
 ; Текущая ячейка пуста и уже открыта, раскрываем свободную область вокруг неё, рекурсия
@@ -598,14 +598,13 @@ CELL2SCR:
 	ADD	FSCADR, R1
 	RETURN
 
-; Нарисовать ячейку под курсором и курсор
+; Нарисовать ячейку под курсором
 DRCURC:
 	CALL	CUR2SCR		; R1 = адрес на экране
 	MOV	R1, R3
 	CALL	CUR2FLD		; R1 = адрес в FIELD
 	MOVB	(R1), R0
-	CALL	DRCELL		; Нарисовать ячейку
-	JMP	DRCURS		; Нарисовать курсор
+	;JMP	DRCELL		; Нарисовать ячейку
 
 ; Нарисовать ячейку игрового поля
 ; R0 = содержимое ячейки, R3 = адрес на экране
@@ -765,21 +764,25 @@ DRCURS:
 	CALL	CUR2SCR
 	MOV	R1, R3
 	MOV	#SPCURS, R2
-	;JMP	SPR16X
+	;JMP	SPR16M
 
-; Вывод спрайта 16 x 16 пикселей по XOR
+; Вывод спрайта 16 x 16 пикселей с маской
 ;     R2 = адрес спрайта, R3 = адрес на экране
 ;     Портит R5, R2, R3, R0
-SPR16X:
+SPR16M:
 	MOV	#16., R5	; Количество строк
 1$:
 	MOV	R3, @#176640
-	MOV	(R2)+, R0
-	XOR	R0, @#176642	; Первое слово
+	MOV	@#176642, R0
+	BIC	(R2)+, R0	; Первое слово, маска
+	BIS	(R2)+, R0	; Первое слово, цвета
+	MOV	R0, @#176642
 	INC	R3
 	MOV	R3, @#176640
-	MOV	(R2)+, R0
-	XOR	R0, @#176642	; Второе слово
+	MOV	@#176642, R0
+	BIC	(R2)+, R0	; Второе слово, маска
+	BIS	(R2)+, R0	; Второе слово, цвета
+	MOV	R0, @#176642
 	ADD	#<80.-1>, R3	; next line
 	SOB	R5, 1$
 	RETURN
@@ -863,7 +866,6 @@ STPALG:
 STPALD:
 	MOV	#PALETD, @#PPBACP
 	;BR	PPSEND
-
 ; Подпрограмма передачи по каналу К2 массива параметров в ПП
 PPSEND:	MOV	#PPBADR, R0
 	MOV	#5, R1
@@ -916,9 +918,11 @@ CURSRY:	.WORD	0		; Позиция Y курсора
 BOMBMK:	.WORD	0		; Сколько осталось мин, число для индикатора
 ;TIME:	.WORD	0
 
-ENDVAR	= .
+STACK::	.BLKW	20		; Временный стек, используется при запуске
+
+ENDSTK	= .
 ; Игровое поле; со всех сторон обрамлено свободным местом минимум в 1 ячейку
-FIELD0	= ENDVAR		; .BLKB 18.	; Пустое пространство перед полем
+FIELD0	= ENDSTK		; .BLKB 18.	; Пустое пространство перед полем
 FIELD	= FIELD0 + 18.		; .BLKB MAXFLD	; Основная часть игрового поля
 FIELD1	= FIELD + MAXFLD	; .BLKB 18.	; Пустое пространство после поля
 ;

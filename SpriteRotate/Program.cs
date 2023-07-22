@@ -43,11 +43,10 @@ namespace SpriteRotate
                 ProcessSprite(writer, $"SPN{i}", 2 + i * 16, 102, 16 / 8, 21);
 
             ProcessSprite(writer, "SPBLOCK", 20, 58, 16 / 8, 16);
-            ProcessSprite(writer, "SPCURS", 38, 58, 16 / 8, 16);
-
             ProcessSprite(writer, "SPBAD", 2, 76, 24 / 8, 24);
             ProcessSprite(writer, "SPGOOD", 28, 76, 24 / 8, 24);
             ProcessSprite(writer, "SPWIN", 54, 76, 24 / 8, 24);
+            ProcessSpriteWithMask(writer, "SPCURS", 38, 58, 16 / 8, 16);
 
             writer.WriteLine();
             writer.WriteLine("; END OF TILES.MAC");
@@ -85,6 +84,54 @@ namespace SpriteRotate
                         word |= (index & 1) << 7;
                         word |= (index & 2) << 14;
                     }
+                    writer.Write(EncodeOctalString2(word));
+
+                    count++;
+                }
+            }
+
+            writer.WriteLine();
+            writer.WriteLine("\t.EVEN");
+        }
+
+        static void ProcessSpriteWithMask(StreamWriter writer, string label, int x0, int y0, int cols, int rows)
+        {
+            writer.Write($"{label}:");
+
+            int perline = 4;
+            int count = 0;
+            for (int row = 0; row < rows; row++)
+            {
+                int y = y0 + row;
+                for (int col = 0; col < cols; col++)
+                {
+                    if (count % perline == 0)
+                    {
+                        writer.WriteLine();
+                        writer.Write("\t.WORD\t");
+                    }
+                    else
+                    {
+                        writer.Write(", ");
+                    }
+
+                    int x = x0 + col * 8;
+                    int mask = 0;
+                    int word = 0;
+                    for (int b = 0; b < 8; b++)
+                    {
+                        word = word >> 1;
+                        mask = mask >> 1;
+                        if (bmp.GetPixel(x + b, y) != Color.FromArgb(255, 128, 128, 128))
+                        {
+                            mask |= (1 << 7) | (2 << 14);
+                            int index = GetColorIndex(bmp, x + b, y);
+                            word |= (index & 1) << 7;
+                            word |= (index & 2) << 14;
+                        }
+                    }
+                    writer.Write(EncodeOctalString2(mask));
+                    writer.Write(",");
                     writer.Write(EncodeOctalString2(word));
 
                     count++;
