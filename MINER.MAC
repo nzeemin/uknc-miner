@@ -118,6 +118,7 @@ STGAME:
 	MOV	(R5)+, (R3)+	; GMEHEI
 	MOV	(R5)+, (R3)+	; BOMBCN
 	MOV	(R5)+, (R3)	; FSCADR
+	CLR	BOMBPT		; Сколько мин установлено на поле
 ; Подготовка игрового экрана
 	MOV	#GAMESC, R1	; Строка для подготовки игрового экрана
 	CALL	PRINT
@@ -130,15 +131,12 @@ STGAME:
 	MOV	GMEHEI, R0
 	ASR	R0
 	MOV	R0, CURSRY
-; Очистка основных переменных
-	CLR	BOMBPT
-	CLR	TIME
 ; Очистка игрового поля
 	MOV	#<MAXFLD+36.>, R4	; Счётчик
 	MOV	#FIELD0, R0
 10$:	MOVB	#200, (R0)+	; Заполнение байта FIELD
 	SOB	R4, 10$
-	CALL	PUTBOMBS
+;NOTE: Бомбы расставляем при первом открытии ячейки
 ; Вывод смайлика
 	MOV	#SPGOOD, R2
 	MOV	#SCICON, R3
@@ -244,7 +242,10 @@ GODOWN:
 	BR	GMCUR		; Нарисовать курсор и продолжить игру
 ; Клавиша пробел - открыть ячейку
 GOSPC:
-	CALL	CUR2FLD		; R1 = адрес в FIELD
+	TST	BOMBPT		; Бомбы уже расставлены?
+	BNE	5$		; да => пропускаем
+	CALL	PUTBOMBS	; Расставляем бомбы
+5$:	CALL	CUR2FLD		; R1 = адрес в FIELD
 	MOVB	(R1), R0
 	BPL	GMCUR		; Ячейка уже открыта? => продолжаем игру
 	BIC	#177740, R0	; Стираем признак закрытости и флаги
@@ -277,7 +278,7 @@ OPENAREA:
 	DEC	R2
 	BITB	#200, (R2)	; открыта?
 	BEQ	10$
-	BITB	#160, (R2)	; можно открыть?
+	BITB	#20, (R2)	; можно открыть?
 	BNE	10$
 	CALL	OPENCELL
 10$:
@@ -287,7 +288,7 @@ OPENAREA:
 	SUB	#18., R2
 	BITB	#200, (R2)	; открыта?
 	BEQ	11$
-	BITB	#160, (R2)	; можно открыть?
+	BITB	#20, (R2)	; можно открыть?
 	BNE	11$
 	DEC	R1
 	CALL	OPENCELL
@@ -301,7 +302,7 @@ OPENAREA:
 	ADD	#18., R2
 	BITB	#200, (R2)	; открыта?
 	BEQ	13$
-	BITB	#160, (R2)	; можно открыть?
+	BITB	#20, (R2)	; можно открыть?
 	BNE	13$
 	CALL	OPENCELL
 13$:	SUB	#18., R2
@@ -316,7 +317,7 @@ OPENAREA:
 	SUB	#18., R2
 	BITB	#200, (R2)	; открыта?
 	BEQ	24$
-	BITB	#160, (R2)	; можно открыть?
+	BITB	#20, (R2)	; можно открыть?
 	BNE	24$
 	DEC	R1
 	CALL	OPENCELL
@@ -330,7 +331,7 @@ OPENAREA:
 	BEQ	38$
 	BITB	#200, (R2)	; открыта?
 	BEQ	28$
-	BITB	#160, (R2)	; можно открыть?
+	BITB	#20, (R2)	; можно открыть?
 	BNE	28$
 	CALL	OPENCELL
 28$:
@@ -340,7 +341,7 @@ OPENAREA:
 	SUB	#18., R2
 	BITB	#200, (R2)	; открыта?
 	BEQ	29$
-	BITB	#160, (R2)	; можно открыть?
+	BITB	#20, (R2)	; можно открыть?
 	BNE	29$
 	DEC	R1
 	CALL	OPENCELL
@@ -354,7 +355,7 @@ OPENAREA:
 	ADD	#18., R2
 	BITB	#200, (R2)	; открыта?
 	BEQ	36$
-	BITB	#160, (R2)	; можно открыть?
+	BITB	#20, (R2)	; можно открыть?
 	BNE	36$
 	CALL	OPENCELL
 36$:	SUB	#18., R2
@@ -369,7 +370,7 @@ OPENAREA:
 	ADD	#18., R2
 	BITB	#200, (R2)	; открыта?
 	BEQ	44$
-	BITB	#160, (R2)	; можно открыть?
+	BITB	#20, (R2)	; можно открыть?
 	BNE	44$
 	CALL	OPENCELL
 44$:	SUB	#18., R2
@@ -379,7 +380,7 @@ OPENAREA:
 ; Открыть пустую ячейку, с рекурсивным открытием дальше
 ; R0 = X, R1 = Y, R2 = адрес в FIELD
 OPENCELL:
-	BICB	#200, (R2)	; Очистить верхний бит в FIELD - открываем
+	BICB	#340, (R2)	; Открываем ячейку, снимаем флаги
 	PUSH	R2
 	PUSH	R0
 	PUSH	R1
@@ -402,6 +403,7 @@ OPENCELL:
 	POP	R2		; адрес в FIELD
 	RETURN
 
+; Расставляем мины
 PUTBOMBS:
 	MOV	BOMBCN, R5	; Счётчик цикла - сколько мин поставить
 1$:	PUSH	R5
@@ -417,7 +419,11 @@ PUTBOMBS:
 	CLR	R0
 	DIV	GMEHEI, R0	; R0 = частное, R1 = остаток = Y
 	POP	R0		; теперь R0 = X, R1 = Y
-	CALL	XY2FLD
+	CMP	CURSRX, R0
+	BNE	5$
+	CMP	CURSRY, R1	; совпало с курсором?
+	BEQ	2$		; да => ищем другое место
+5$:	CALL	XY2FLD
 	BITB	#20, (R1)	; Мина уже стоит?
 	BNE	2$		; да => ищем другое место
 	MOVB	#237, (R1)	; ставим мину
@@ -514,7 +520,7 @@ BOMBCALC:
 	;MOVB	R0, (R2);DEBUG открытое число
 	RETURN
 
-; Проверка поля на завершение
+; Проверка поля на завершение; должна вызываться только когда мины расставлены
 ; Результат: Z=1 - игра окончена
 CHKFLD:
 	CLR	NUMCLO		; Очищаем счётчик закрытых ячеек
